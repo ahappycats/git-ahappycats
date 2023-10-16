@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Voice Translator</title>
+</head>
+<body>
+<h1>Voice Translator</h1>
+<button id="startRecord">Start Recording</button>
+<button id="stopRecord" disabled>Stop Recording</button>
+<audio id="player" controls></audio>
+<h2>Translated Text</h2>
+<p id="translatedText"></p>
+
+<script>
+  let mediaRecorder;
+  let audioChunks = [];
+
+  document.getElementById('startRecord').onclick = async () => {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    mediaRecorder = new MediaRecorder(stream);
+
+    mediaRecorder.ondataavailable = event => {
+      audioChunks.push(event.data);
+    };
+
+    mediaRecorder.onstop = async () => {
+      const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+      const formData = new FormData();
+      formData.append('audio', audioBlob);
+
+      const response = await fetch('http://localhost:8080/translate_and_speak', {
+        method: 'POST',
+        body: formData
+      });
+
+      const result = await response.json();
+
+      if (response.status === 200) {
+        document.getElementById('player').src = result.audioPath;
+        // 이 부분을 추가해서 번역된 텍스트를 페이지에 표시합니다.
+        document.getElementById('translatedText').innerText = result.translatedText;
+      } else {
+        alert('Error: ' + result.error);
+      }
+    };
+
+    mediaRecorder.start();
+    document.getElementById('startRecord').disabled = true;
+    document.getElementById('stopRecord').disabled = false;
+  };
+
+  document.getElementById('stopRecord').onclick = () => {
+    mediaRecorder.stop();
+    document.getElementById('startRecord').disabled = false;
+    document.getElementById('stopRecord').disabled = true;
+  };
+</script>
+</body>
+</html>
